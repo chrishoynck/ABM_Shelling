@@ -3,6 +3,17 @@ import matplotlib.patches as mpatch
 import matplotlib.pyplot as plt
 
 def visualize_start_end(population_dist, grid_cells, snapshots):
+    """
+    Visualise the initial and final states of the model on the Utrecht grid.
+
+    Params:
+        population_dist (list of float): proportions of low, medium and high income categories.
+        grid_cells (GeoDataFrame): holds the grid geometry and cell identifiers.
+        snapshots (list of dict): state dictionaries at step 0 and step (steps-1), mapping cell_id to occupancy.
+
+    Returns:
+        None: saves a side-by-side plot as "plots/end_start.png" and displays it.
+    """
     cmap = ListedColormap(["lightgrey", "steelblue", "indianred", "yellowgreen"])
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
     for ax, snap, title in ((ax1, snapshots[0], "Initial State"),(ax2, snapshots[-1], "Final State"),):
