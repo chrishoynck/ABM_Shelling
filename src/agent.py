@@ -19,6 +19,9 @@ class SchellingAgent(Agent):
         else:
             frac = 0
         self.happy = frac >= self.homophily
+        if self.happy: 
+            self.model.happy += 1
+            self.model.happiness_per_type[self.type] += 1
         if not self.happy:
             empties = list(self.model.grid.empties)
             if empties:
