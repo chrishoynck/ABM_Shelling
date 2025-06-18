@@ -24,15 +24,15 @@ class SchellingAgent(Agent):
                 self.model.grid.move_agent(self, new_pos)
 
 # Parameters
-actions = ("a", "b", "c") # 3 actions here
+actions = ("a", "b") # 2 actions
 pi_c, pi_m = 10, 1 # pay-offs
 threshold = 8 # threshold for happinness
 
 # Choice rule for action
-def choose_action(prop):
+def choose_action(prop, rng):
     """
     prop: dictionary for action → propensity
-    returns: one of "a", "b", or "c" drawn with soft-max probabilities
+    returns: one of "a" of "b" drawn with soft-max probabilities
     """
 
     # numerator for each action:
@@ -51,7 +51,7 @@ def choose_action(prop):
     }
 
     # sample according probs and random
-    return np.random.choice(
+    return rng.choice(
         actions,
         p=[probs[a] for a in actions]
     )
