@@ -4,10 +4,8 @@ import src.visualization as vis
 
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
-PROCESSES = 10
 
-
-# --------------------------- Simulation Setup ----------------------------- #
+# -------------------------- Simulation Setup ----------------------------- #
 def run_model(which_run, steps, seedje, params):
     """
     Run the given model for a fixed number of steps, recording the grid state at each step.
@@ -41,6 +39,7 @@ def run_model(which_run, steps, seedje, params):
         else: 
             break
     print(f"happiness is reached after {s} steps.")
+    # print(run_metrics)
     return snapshots, happyness, run_metrics, model.num_agents_per_type,  which_run
 
 
@@ -48,6 +47,18 @@ def execute_parallel_models(how_many,
                             params,
                             seedje, 
                             steps):
+    """
+    Run multiple Schelling model simulations in parallel.
+
+    Args:
+        how_many (int): Number of runs to execute.
+        params (dict): Model parameters.
+        seedje (int): Base random seed.
+        steps (int): Number of steps per run.
+
+    Returns:
+        list: Results from each parallel run.
+    """
 
     print(f"starting parallel generation of Schelling model for {how_many} runs)")
     print("-----------------------------------------")
@@ -68,56 +79,82 @@ def execute_parallel_models(how_many,
 
 
 def unpack_and_parse_results(resultaatjes):
+    """
+    Align and pad runs to equal length, then compute total happiness per step.
+
+    Params:
+        resultaatjes (list of tuples):  
+            Each element is (snapshots, happiness_measures, run_metrics,
+            num_agents_grouped, run_id) for one run.
+
+    Returns:
+        tuple:
+            snapshots_runs (Tuple): of snapshots per run;
+            happiness_runs (List): padded happiness lists per run;
+            run_metrics (List): padded metrics lists per run;
+            num_agents_grouped (Tuple): agent counts per run.
+    """
+    # unpack results
     snapshots_runs, happiness_runs, run_metrics, num_agents_grouped, run_ids = zip(*resultaatjes)
     total_happy = []
-    # total_agents = []
     maximal_runs = max([len(x) for x in happiness_runs])
+
+    # iterate through different runs
     for i, happiness_measures in enumerate(happiness_runs): 
+
+        # if this is not the longest run, padd with last value
         if len(happiness_measures) < maximal_runs:
             diff = maximal_runs - len(happiness_measures)
             last_happy = happiness_measures[-1]
             last_metric = run_metrics[i][-1]
             happiness_measures.extend([last_happy] * diff)
             run_metrics[i].extend([last_metric] * diff)
-            # print(len(run_metrics[i]))
+        
+        # compute total happiness (over all types)
         tot_happyness = np.sum(happiness_measures, axis=1)
-        # tot_agents = np.sum(num_agents_grouped[i])
         total_happy.append(tot_happyness)
-        # total_agents.append(tot_agents)
     
     return snapshots_runs, happiness_runs, total_happy, run_metrics, num_agents_grouped
         
 
 
 def main():
+
+    # set parameters 
     width = 20
     height = 20
+
     density = 0.9
     income_distribution = [1/3,1/3,1/3]
-
     homophilies = [0.3,0.3,0.3]
     radius = 1
+
     steps = 100
     seedje = 43
     num_runs = 10
 
+    # pack params
     params = (width, height, density,
               income_distribution,
               homophilies, radius)
+    
+    # run singular model
+    # run_model(0, steps, seedje, params)
+
+    # collect all results over runs (parallelized implementation)
     resultaatjes = execute_parallel_models(num_runs,
                                            params,
                                            seedje,
                                            steps)
-    # run_model(0, steps, seedje, params)
+    
 
     # collect data of run 
     snapshots_runs, happiness_runs, total_happy, run_metrics,num_agents_grouped = unpack_and_parse_results(resultaatjes)
     
-
+    # visualize
     vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
     vis.metrics_plot(run_metrics)
     vis.create_animation(snapshots_runs[0])
-
 
 if __name__ == '__main__':
     main()
