@@ -25,5 +25,14 @@ class SchellingAgent(Agent):
         if not self.happy:
             empties = list(self.model.grid.empties)
             if empties:
+                old_pos = self.pos
                 new_pos = self.random.choice(empties)
+
+                # update district 
+                old_district = self.model.district_of[old_pos]
+                new_district = self.model.district_of[new_pos]
+                old_district.counts[self.type] -=1
+                new_district.counts[self.type] +=1
+                
                 self.model.grid.move_agent(self, new_pos)
+                
