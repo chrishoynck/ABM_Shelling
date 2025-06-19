@@ -11,7 +11,7 @@ def create_animation(snapshots):
     """
     fig, ax = plt.subplots(figsize=(7, 7))
     fig.subplots_adjust(top=0.85)   
-    im = ax.imshow(snapshots[0], interpolation='nearest')
+    im = ax.imshow(snapshots[0], interpolation='nearest', origin='lower')
     ax.set_axis_off()
     fig.tight_layout()
 

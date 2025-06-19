@@ -19,8 +19,8 @@ def run_model(which_run, steps, seedje, params):
     """
     snapshots = []
     happyness = []
-    (width, height, density, income_distribution, homophilies, radius) = params
-    model = SchellingModel(width, height, density, income_distribution, homophilies, radius, seedje+which_run)
+    (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, income_distribution) = params
+    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, income_distribution, seedje+which_run)
     run_metrics = []
 
     for s in range(steps):
@@ -29,15 +29,16 @@ def run_model(which_run, steps, seedje, params):
         for cell in model.grid.coord_iter():
             content, x, y = cell
             if content:
+
                 # capacity 1 grid, so take first agent
                 grid_state[x, y] = content[0].type
         snapshots.append(grid_state)
         happyness.append(model.happiness_per_type)
         run_metrics.append(model.metrics)
-        if model.happy < model.schedule.get_agent_count(): 
-            model.step()
-        else: 
-            break
+        # if model.happy < model.schedule.get_agent_count(): 
+        model.step()
+        # else: 
+        #     break
     print(f"happiness is reached after {s} steps.")
     # print(run_metrics)
     return snapshots, happyness, run_metrics, model.num_agents_per_type,  which_run
@@ -126,21 +127,29 @@ def main():
 
     density = 0.9
     income_distribution = [1/3,1/3,1/3]
-    homophilies = [0.3,0.3,0.3]
-    radius = 1
+    
+    p_random = 0.1
+    pay_c = 10
+    pay_m = 1
+    max_tenure = 5
+    u_threshold = 7
 
     steps = 100
     seedje = 43
     num_runs = 10
 
+
+
     # pack params
-    params = (width, height, density,
-              income_distribution,
-              homophilies, radius)
+    params = (width, height, density, 
+              p_random, pay_c, pay_m,
+              max_tenure, u_threshold, 
+              income_distribution)
     
     # run singular model
     # run_model(0, steps, seedje, params)
-
+    
+    # parallel
     # collect all results over runs (parallelized implementation)
     resultaatjes = execute_parallel_models(num_runs,
                                            params,
