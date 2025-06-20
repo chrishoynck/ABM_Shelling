@@ -1,0 +1,22 @@
+ 
+ WERKT MET DYNAMIC HOUSING PRICES
+ 
+ # set parameters 
+    width = 20
+    height = 20
+    density = 0.7
+
+    # based on real data
+    population_distribution = [0.1752,0.524,0.3008]
+    
+    p_random = 0.02
+    pay_c = 10
+    pay_m = 5
+    max_tenure = 5
+    u_threshold = 8
+
+    alpha = 0.3
+
+    steps = 2000
+    seedje = 43
+    num_runs = 10
