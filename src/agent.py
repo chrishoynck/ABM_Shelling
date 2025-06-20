@@ -15,6 +15,9 @@ class SchellingAgent(Agent):
         # initial number of having an action played 
         self.N_A = self.N_B = self.N_C = 10
 
+        base_income = {0: 4, 1: 10, 2: 16}[agent_type]
+        self.income = base_income * np.random.lognormal(0, 0.25)
+
         self.current_action = np.random.choice(['a', 'b', 'c'])
         self.tenure = 0
         self.utility_sum = 0
@@ -84,6 +87,7 @@ class SchellingAgent(Agent):
     def get_best_district(self, mu): 
         """
         Select the district with highest expected payoff.
+        Places bids on houses within districts to determine rent for next round
 
         Params:
             mu (dict): Mapping each District to a dict of action proportions.
@@ -96,9 +100,23 @@ class SchellingAgent(Agent):
         Probs = {'a': expA/total, 'b': expB/total, 'c':expC/total}
         E_payoffs_per_district = {}
         for district in self.model.districts:
-            E_payoffs_per_district[district] = (Probs['a'] * (self.model.pay_c*mu[district]['a'] + self.model.pay_m*(1-mu[district]['a'])) + 
-                                                Probs['b'] * (self.model.pay_c*mu[district]['b'] + self.model.pay_m*(1-mu[district]['b'])) + 
-                                                Probs['c'] * (self.model.pay_c*mu[district]['c'] + self.model.pay_m*(1-mu[district]['c'])))
+            E_payoff = (Probs['a'] * (self.model.pay_c*mu[district]['a'] + self.model.pay_m*(1-mu[district]['a'])) + 
+                        Probs['b'] * (self.model.pay_c*mu[district]['b'] + self.model.pay_m*(1-mu[district]['b'])) + 
+                        Probs['c'] * (self.model.pay_c*mu[district]['c'] + self.model.pay_m*(1-mu[district]['c'])))
+            
+            # my_district = self.model.district_of[self.pos]
+            rent = district.rent
+            consumption = self.income - min(rent, self.income)
+
+            # WTP = (consumption**self.model.alpha) * (E_payoff**(1-self.model.alpha))
+
+            # WITHOUT HOUSING RENTS 
+            WTP = E_payoff
+
+            
+            district.bids.append((self, WTP))
+            E_payoffs_per_district[district] =  WTP #(consumption**self.model.alpha) * (E_payoff**(1-self.model.alpha))
+            # print(f"agent type: {self.type}, income: {np.round(self.income, 2)}, district: {district.id}, WTP: {np.round(WTP, 2)}, consumption: {np.round(consumption, 2)}")
         best_district = max(E_payoffs_per_district, key=E_payoffs_per_district.get)
 
         return best_district
@@ -162,19 +180,10 @@ class SchellingAgent(Agent):
 
         # move if not happy or with random small prob
         random_move = (self.tenure >= self.model.max_tenure and np.random.random() < self.model.p_random)
-        if unhappy_move or random_move:
-            mu = dict()
-            for d in self.model.districts:
-                if d.total_in_dist():
-                    mu[d] = {
-                        'a': d.action_counts['a'] / d.total_in_dist(),
-                        'b': d.action_counts['b'] / d.total_in_dist(),
-                        'c': d.action_counts['c'] / d.total_in_dist()
-                    }
-                else:
-                    mu[d] = 0
+        
+        best_district = self.get_best_district(self.model.mu)
 
-            best_district = self.get_best_district(mu)
+        if unhappy_move or random_move:
             self.move(best_district, random_move)
 
 

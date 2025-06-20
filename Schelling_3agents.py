@@ -19,8 +19,8 @@ def run_model(which_run, steps, seedje, params):
     """
     snapshots = []
     happyness = []
-    (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, income_distribution) = params
-    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, income_distribution, seedje+which_run)
+    (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution) = params
+    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, seedje+which_run)
     run_metrics = []
 
     for s in range(steps):
@@ -123,30 +123,30 @@ def unpack_and_parse_results(resultaatjes):
 def main():
 
     # set parameters 
-    width = 20
-    height = 20
-    density = 0.7
+    width = 25
+    height = 25
+    density = 0.85
 
     # based on real data
-    income_distribution = [0.1752,0.524,0.3008]
+    population_distribution = [0.1752,0.524,0.3008]
     
-    p_random = 0.05
+    p_random = 0.04
     pay_c = 10
     pay_m = 5
     max_tenure = 5
     u_threshold = 8
 
+    alpha = 0.3
+
     steps = 2000
     seedje = 43
     num_runs = 10
 
-
-
     # pack params
     params = (width, height, density, 
               p_random, pay_c, pay_m,
-              max_tenure, u_threshold, 
-              income_distribution)
+              max_tenure, u_threshold, alpha,
+              population_distribution)
     
     # run singular model
     # run_model(0, steps, seedje, params)

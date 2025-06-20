@@ -6,7 +6,7 @@ from src.agent import SchellingAgent
 from mesa.datacollection import DataCollector
 
 class District:
-    def __init__(self, id_):
+    def __init__(self, id_, rent=0):
         """
         Initialize a District.
 
@@ -17,6 +17,9 @@ class District:
         self.counts = {0: 0, 1: 0, 2: 0}
         self.action_counts = {'a': 0, 'b': 0, 'c': 0}
         self.empty_places = []
+        self.bids = []
+        self.area = 0
+        self.rent = rent
 
     def count_of(self, group):
         """
@@ -89,14 +92,14 @@ class District:
 
 class SchellingModel(Model):
     """Model class for the Schelling segregation model."""
-    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, income_distribution, seed=None, num_districts = 3):
+    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, population_distribution, seed=None, num_districts = 3):
         """Create a new Schelling model.
 
         Args:
             width: Width of the grid
             height: Height of the grid
             density: Initial chance for a cell to be populated (0-1)
-            income_distribution: Chance for an agent to be in a class (0-1-2)
+            population_distribution: Chance for an agent to be in a class (0-1-2)
             homophilies: Minimum number of similar neighbors needed for happiness
             seed: Seed for reproducibility
         """
@@ -106,11 +109,13 @@ class SchellingModel(Model):
 
         # measuring happyness per type 
         self.happy = 0
+        self.alpha = alpha
         self.happiness_per_type = [0.0, 0.0, 0.0]
         self.num_agents_per_type = [0, 0, 0]
 
         self.pay_c = pay_c
         self.pay_m = pay_m
+        self.mu = 0
         self.max_tenure = max_tenure
         self.u_threshold = u_threshold
         self.p_random = p_random
@@ -125,37 +130,32 @@ class SchellingModel(Model):
             for x in range(width) for y in range(height)
         }
         uid = 0
-        assert sum(income_distribution) == 1, "Sum of income distribution should be 1"
+        assert sum(population_distribution) == 1, "Sum of income distribution should be 1"
         
         district_areas = self.outline_districts(width, height)
         # initialize agents on grid 
         for x in range(width):
             for y in range(height):
 
-                # determine what district this grid cell belongs to 
-                # idx = min(x // stripe_width, num_districts - 1)
-                # district = self.districts[idx]
-                # self.district_of[(x, y)] = district
-                # district.empty_places.append((x, y))
-
                 for district_id, boxes in district_areas.items():
                     if any(self.point_in_box(x, y, box) for box in boxes):
                         district = self.districts[district_id]
                         self.district_of[(x, y)] = district
                         district.empty_places.append((x, y))
+                        district.area +=1
                         break
                 else:
                     raise ValueError(f"cell ({x,y}) does not fall in any district ")
                 
                 if self.random.random() < density:
-                    agent_type = np.random.choice([0, 1, 2], p=income_distribution)
+                    agent_type = np.random.choice([0, 1, 2], p=population_distribution)
                     if agent_type == 0:
                         agent = SchellingAgent(uid, self, agent_type)
                     elif agent_type == 1:
                         agent = SchellingAgent(uid, self, agent_type)
                     else:
                         agent = SchellingAgent(uid, self, agent_type)
-                    
+                
                     self.grid.place_agent(agent, (x, y))
                     self.schedule.add(agent)
 
@@ -164,19 +164,41 @@ class SchellingModel(Model):
                     uid += 1
                     self.num_agents_per_type[agent_type] += 1
         
+        
+        self.calc_mu()
+        self.set_inital_rents(self.mu)
+
         #  metrics
         self.metrics = (self.exposure_to_others(self.num_agents_per_type, self.districts), 
                         self.dissimilarity(self.num_agents_per_type, self.districts)) 
         
         assert sum(self.num_agents_per_type) == self.schedule.get_agent_count(), "total number of agents across types is not the same as total agents"
         
-        total_people = 0
-        for d in self.districts:
-            # print(f'distribution district {d}: {d.counts}')
-            total_people += d.total_in_dist()
-        assert total_people == self.schedule.get_agent_count(), f"ROUND 0: Number of agents over districts ({total_people}) does not equal total number ({self.schedule.get_agent_count()})"
         # collect initial data
         # self.datacollector.collect(self)
+
+    def calc_mu(self):
+        mu = dict()
+        for d in self.districts:
+            if d.total_in_dist():
+                mu[d] = {
+                    'a': d.action_counts['a'] / d.total_in_dist(),
+                    'b': d.action_counts['b'] / d.total_in_dist(),
+                    'c': d.action_counts['c'] / d.total_in_dist()
+                }
+            else:
+                mu[d] = {
+                    'a': 0,
+                    'b': 0,
+                    'c': 0
+                }
+        self.mu= mu
+
+    def set_inital_rents(self, mu):
+
+        # get bids on districts 
+        for ag in self.schedule.agents:
+            _ = ag.get_best_district(mu)
 
     def point_in_box(self, x, y, box):
             x1, y1, x2, y2 = box
@@ -280,22 +302,55 @@ class SchellingModel(Model):
             exposure += 1/3*exposed_i
 
         return exposure
+    
+    def set_rent_districts(self):
+        total_people = 0
+        for d in self.districts:
+            d.bids.sort(key=lambda x: x[1], reverse=True)
+            supply = d.area
+            
+            # print(len(d.bids))
+            if len(d.bids) >= supply:
+                rent = d.bids[supply - 1][1]
+            else:
+                rent = d.bids[-1][1] if d.bids else 0
+                if not d.bids:
+                    raise ValueError("there are no biddings on this district, should not happen")
+            d.rent = rent
+
+            # if d.id == 0: 
+            #     d.rent = 2
+            # elif d.id == 1: 
+            #     d.rent = 5
+            # elif d.id == 2: 
+            #     d.rent = 10
+            # else:
+            #     raise ValueError("id's not correctly set")
+
+            # print(f"{d.id}: rent {d.rent}")
+
+            d.bids = []
+            total_people += d.total_in_dist()
+        
+         # make sure the dynamical update results in same measures over time 
+        assert total_people == self.schedule.get_agent_count(), f"Number of agents over districts ({total_people}) does not equal total number ({self.schedule.get_agent_count()})"
+
+    
+
 
     def step(self):
 
         # reset happiness
+        
         self.happy = 0
         self.happiness_per_type = [0.0, 0.0, 0.0]
-        total_people = 0
+        
         self.metrics = (self.exposure_to_others(self.num_agents_per_type, self.districts), 
                         self.dissimilarity(self.num_agents_per_type, self.districts)) 
-        
-        # make sure the dynamical update results in same measures over time 
-        for d in self.districts:
-            total_people += d.total_in_dist()
-        assert total_people == self.schedule.get_agent_count(), f"Number of agents over districts ({total_people}) does not equal total number ({self.schedule.get_agent_count()})"
 
-        
+        self.calc_mu()
+        self.set_rent_districts()
+       
         #  agent step
         self.schedule.step()
         
