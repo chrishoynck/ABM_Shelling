@@ -17,12 +17,12 @@ def create_animation(snapshots):
 
     def update(frame):
         im.set_data(snapshots[frame])
-        ax.set_title(f"Step {frame+1}")
+        ax.set_title(f"Step {frame+10}")
         fig.tight_layout()
         return [im]
 
-    ani = animation.FuncAnimation(fig, update, frames=len(snapshots), blit=True, interval=100)
-    writer = animation.PillowWriter(fps=10)
+    ani = animation.FuncAnimation(fig, update, frames=len(snapshots), blit=True, interval=10)
+    writer = animation.PillowWriter(fps=20)
     ani.save("plots/schelling_animation.gif", 
              writer=writer)
     plt.close(fig)
@@ -65,15 +65,16 @@ def happyness_plot(happy_data, happiness_grouped, numagents_per_type):
     mean_grp = prop_grp.mean(axis=0)               
     var_grp  = prop_grp.var(axis=0)
 
-    ax.plot(steps, mean_tot, label="Total")
+    ax.plot(steps, mean_tot, label="Total", linewidth=0.3)
     ax.fill_between(steps,
                     mean_tot - np.sqrt(var_tot),
                     mean_tot + np.sqrt(var_tot),
                     alpha=0.2)
+    
     for i in range(3):
         mu = mean_grp[:, i]
         sigma = np.sqrt(var_grp[:, i])
-        ax.plot(steps, mu, label=f"Type {i}")
+        ax.plot(steps, mu, label=f"Type {i}", linewidth=0.3)
         ax.fill_between(steps, mu - sigma, mu + sigma, alpha=0.2)
             
     ax.set_xlabel("steps")

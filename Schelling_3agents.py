@@ -32,7 +32,8 @@ def run_model(which_run, steps, seedje, params):
 
                 # capacity 1 grid, so take first agent
                 grid_state[x, y] = content[0].type
-        snapshots.append(grid_state)
+        if s%10 == 0:
+            snapshots.append(grid_state)
         happyness.append(model.happiness_per_type)
         run_metrics.append(model.metrics)
         # if model.happy < model.schedule.get_agent_count(): 
@@ -124,17 +125,18 @@ def main():
     # set parameters 
     width = 20
     height = 20
+    density = 0.7
 
-    density = 0.9
-    income_distribution = [1/3,1/3,1/3]
+    # based on real data
+    income_distribution = [0.1752,0.524,0.3008]
     
-    p_random = 0.1
+    p_random = 0.05
     pay_c = 10
-    pay_m = 1
+    pay_m = 5
     max_tenure = 5
-    u_threshold = 7
+    u_threshold = 8
 
-    steps = 100
+    steps = 2000
     seedje = 43
     num_runs = 10
 

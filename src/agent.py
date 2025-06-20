@@ -103,7 +103,7 @@ class SchellingAgent(Agent):
 
         return best_district
 
-    def move(self, best_district):
+    def move(self, best_district, random_move):
         """
         Relocate the agent to a new empty cell, preferring the given district.
 
@@ -113,7 +113,9 @@ class SchellingAgent(Agent):
         """
 
         # change locations and districts 
-        if best_district.empty_places:
+        if not random_move and np.random.random() < 0.3:
+            return
+        if best_district.empty_places and not random_move:
             new_x, new_y = self.random.choice(best_district.empty_places)
             current_district = self.model.district_of[self.pos]
             current_district.move_out(self)
@@ -137,7 +139,7 @@ class SchellingAgent(Agent):
                 new_district.move_in(self)
                 self.tenure = 0
                 self.utility_sum = 0
-
+        return
     def step(self):
         
         # choose action and play coordination game with neighbors
@@ -152,61 +154,29 @@ class SchellingAgent(Agent):
          # If the agent is unhappy and has reached the max tenure, the agent wants to move
         mean_utility = self.average_utility()
 
-        # print(mean_utility)
         self.happy = (mean_utility >= self.model.u_threshold)
         if self.happy:
-            # print("here")
             self.model.happiness_per_type[self.type] += 1
-        # else: 
-        #     print("not here")
 
         unhappy_move = (mean_utility < self.model.u_threshold and self.tenure >= self.model.max_tenure)
-        # if not unhappy_move:
-        #     if self.happy:
-        #         self.model.happy += 1
-        #         self.model.happiness_per_type[self.type] += 1
-        
+
         # move if not happy or with random small prob
         random_move = (self.tenure >= self.model.max_tenure and np.random.random() < self.model.p_random)
         if unhappy_move or random_move:
             mu = dict()
             for d in self.model.districts:
-                mu[d] = {
-                    'a': d.action_counts['a'] / d.total_in_dist(),
-                    'b': d.action_counts['b'] / d.total_in_dist(),
-                    'c': d.action_counts['c'] / d.total_in_dist()
-                }
+                if d.total_in_dist():
+                    mu[d] = {
+                        'a': d.action_counts['a'] / d.total_in_dist(),
+                        'b': d.action_counts['b'] / d.total_in_dist(),
+                        'c': d.action_counts['c'] / d.total_in_dist()
+                    }
+                else:
+                    mu[d] = 0
 
             best_district = self.get_best_district(mu)
-            self.move(best_district)
+            self.move(best_district, random_move)
 
 
-            
-
-
-        # if neighbors:
-        #     similar = sum(1 for n in neighbors if n.type == self.type)
-        #     frac = similar / len(neighbors)
-        # else:
-        #     frac = 0
-        # self.happy = frac >= self.homophily
-        # if self.happy: 
-        #     self.model.happy += 1
-        #     self.model.happiness_per_type[self.type] += 1
-
-        # move if not happy
-            # empties = list(self.model.grid.empties)
-            # if empties:
-            #     old_pos = self.pos
-            #     new_pos = self.random.choice(empties)
-
-            #     # update district 
-            #     old_district = self.model.district_of[old_pos]
-            #     new_district = self.model.district_of[new_pos]
-
-            #     # DO THIS ALSO FOR ACTION
-            #     old_district.counts[self.type] -=1
-            #     new_district.counts[self.type] +=1
-                
-            #     self.model.grid.move_agent(self, new_pos)
+        
                 

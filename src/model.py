@@ -276,7 +276,9 @@ class SchellingModel(Model):
                 exposed_i += (ni / tot_i) * ((total_in_district - ni) / total_in_district)
 
             # add normalized value
-            exposure += (tot_i/total_agents)*exposed_i
+            # exposure += (tot_i/total_agents)*exposed_i
+            exposure += 1/3*exposed_i
+
         return exposure
 
     def step(self):
