@@ -19,10 +19,10 @@ def run_model(which_run, steps, seedje, params):
     """
     snapshots = []
     happyness = []
-    (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution) = params
-    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, seedje+which_run)
+    (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist) = params
+    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist, seedje+which_run)
     run_metrics = []
-
+    district_rents = []
     for s in range(steps):
         # Capture grid state: -1 empty, 0, 1 or 2 agent types
         grid_state = np.full((width, height), -1)
@@ -34,6 +34,7 @@ def run_model(which_run, steps, seedje, params):
                 grid_state[x, y] = content[0].type
         if s%10 == 0:
             snapshots.append(grid_state)
+        district_rents.append((model.districts[0].rent,model.districts[1].rent, model.districts[2].rent ))
         happyness.append(model.happiness_per_type)
         run_metrics.append(model.metrics)
         # if model.happy < model.schedule.get_agent_count(): 
@@ -42,7 +43,7 @@ def run_model(which_run, steps, seedje, params):
         #     break
     print(f"happiness is reached after {s} steps.")
     # print(run_metrics)
-    return snapshots, happyness, run_metrics, model.num_agents_per_type,  which_run
+    return snapshots, happyness, run_metrics, district_rents, model.num_agents_per_type,  which_run
 
 
 def execute_parallel_models(how_many, 
@@ -97,7 +98,7 @@ def unpack_and_parse_results(resultaatjes):
             num_agents_grouped (Tuple): agent counts per run.
     """
     # unpack results
-    snapshots_runs, happiness_runs, run_metrics, num_agents_grouped, run_ids = zip(*resultaatjes)
+    snapshots_runs, happiness_runs, run_metrics, district_rents,  num_agents_grouped, run_ids = zip(*resultaatjes)
     total_happy = []
     maximal_runs = max([len(x) for x in happiness_runs])
 
@@ -109,34 +110,39 @@ def unpack_and_parse_results(resultaatjes):
             diff = maximal_runs - len(happiness_measures)
             last_happy = happiness_measures[-1]
             last_metric = run_metrics[i][-1]
+            last_rent = district_rents[i][-1]
+
             happiness_measures.extend([last_happy] * diff)
             run_metrics[i].extend([last_metric] * diff)
+            district_rents[i].extend([last_rent] * diff)
+
         
         # compute total happiness (over all types)
         tot_happyness = np.sum(happiness_measures, axis=1)
         total_happy.append(tot_happyness)
     
-    return snapshots_runs, happiness_runs, total_happy, run_metrics, num_agents_grouped
+    return snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents, num_agents_grouped
         
 
 
 def main():
 
     # set parameters 
-    width = 25
-    height = 25
+    width = 20
+    height = 20
     density = 0.85
 
     # based on real data
     population_distribution = [0.1752,0.524,0.3008]
+    income_dist =  [15.6, 41.2, 94.0]
     
-    p_random = 0.04
+    p_random = 0.1
     pay_c = 10
     pay_m = 5
-    max_tenure = 5
+    max_tenure = 4
     u_threshold = 8
 
-    alpha = 0.3
+    alpha = 0
 
     steps = 2000
     seedje = 43
@@ -146,13 +152,16 @@ def main():
     params = (width, height, density, 
               p_random, pay_c, pay_m,
               max_tenure, u_threshold, alpha,
-              population_distribution)
+              population_distribution, income_dist)
     
     # run singular model
     # run_model(0, steps, seedje, params)
     
     # parallel
     # collect all results over runs (parallelized implementation)
+
+    if alpha>0: 
+        print("RUNNING WITH DYNAMIC HOUSING PRICE")
     resultaatjes = execute_parallel_models(num_runs,
                                            params,
                                            seedje,
@@ -160,10 +169,12 @@ def main():
     
 
     # collect data of run 
-    snapshots_runs, happiness_runs, total_happy, run_metrics,num_agents_grouped = unpack_and_parse_results(resultaatjes)
+    snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents,  num_agents_grouped = unpack_and_parse_results(resultaatjes)
     
     # visualize
+
     vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
+    vis.district_prices_plot(district_rents)
     vis.metrics_plot(run_metrics)
     vis.create_animation(snapshots_runs[0])
 

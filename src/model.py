@@ -3,106 +3,33 @@ from mesa import Model
 from mesa.space import MultiGrid
 from mesa.time import RandomActivation
 from src.agent import SchellingAgent
-from mesa.datacollection import DataCollector
+from src.district import District
+# from mesa.datacollection import DataCollector
 
-class District:
-    def __init__(self, id_, rent=0):
-        """
-        Initialize a District.
-
-        Params:
-            id_ (int): Unique district identifier.
-        """
-        self.id = id_
-        self.counts = {0: 0, 1: 0, 2: 0}
-        self.action_counts = {'a': 0, 'b': 0, 'c': 0}
-        self.empty_places = []
-        self.bids = []
-        self.area = 0
-        self.rent = rent
-
-    def count_of(self, group):
-        """
-        Get the number of agents of a given type in this district.
-
-        Params:
-            group (int): Agent type index.
-
-        Returns:
-            int: Count of agents of that type.
-        """
-        return self.counts[group]
-
-    def count_of_actions(self, action):
-        """
-        Get the number of agents currently taking a given action in this district.
-
-        Params:
-            action (str): Action label ('a', 'b', or 'c').
-
-        Returns:
-            int: Count of agents performing that action.
-        """
-        return self.action_counts[action]
-
-    def total_in_dist(self):
-        """
-        Compute the total number of agents in this district.
-
-        Returns:
-            int: Sum of all agent counts across types.
-        """
-        waarde = 0
-        for i in range(3):
-            waarde += self.count_of(i)
-        return waarde
-
-    def change_actions(self, old_action, new_action):
-        """
-        Update action counts when an agent switches actions.
-
-        Params:
-            old_action (str): Previous action label.
-            new_action (str): New action label.
-        """
-        self.action_counts[old_action] -= 1
-        self.action_counts[new_action] += 1
-
-    def move_in(self, agent):
-        """
-        Register an agent moving into this district.
-
-        Params:
-            agent (Agent): The agent entering; must have 'pos', 'type' and 'current_action'.
-        """
-        self.empty_places.remove(agent.pos)
-        self.action_counts[agent.current_action] += 1
-        self.counts[agent.type] += 1
-
-    def move_out(self, agent):
-        """
-        Register an agent moving out of this district.
-
-        Params:
-            agent (Agent): The agent leaving; must have 'pos', 'type' and 'current_action'.
-        """
-        self.empty_places.append(agent.pos)
-        self.action_counts[agent.current_action] -= 1
-        self.counts[agent.type] -= 1
 
 class SchellingModel(Model):
     """Model class for the Schelling segregation model."""
-    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, population_distribution, seed=None, num_districts = 3):
-        """Create a new Schelling model.
-
-        Args:
-            width: Width of the grid
-            height: Height of the grid
-            density: Initial chance for a cell to be populated (0-1)
-            population_distribution: Chance for an agent to be in a class (0-1-2)
-            homophilies: Minimum number of similar neighbors needed for happiness
-            seed: Seed for reproducibility
+    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, population_distribution, income_dist, seed=None, num_districts = 3):
         """
+        Initialise a new Schelling model with spatial districts and bidding.
+
+        Params:
+            width (int): Width of the grid (number of columns).
+            height (int): Height of the grid (number of rows).
+            density (float): Probability in [0,1] that a given cell starts occupied.
+            p_random (float): Probability of a random move when tenure expires.
+            pay_c (float): Payoff for coordination in the neighbourhood game.
+            pay_m (float): Payoff for miscoordination in the neighbourhood game.
+            max_tenure (int): Number of steps an agent stays before forced reconsideration.
+            u_threshold (float): Minimum average utility for an agent to remain happy.
+            alpha (float): Weight on consumption (vs. expected game payoff) in bid utility.
+            population_distribution (list[float]): Probabilities summing to 1 of each agent type.
+            income_dist (list[float]): Base income level for each agent type.
+            seed (int, optional): Random seed for reproducibility. Defaults to None.
+            num_districts (int, optional): Number of spatial districts. Defaults to 3.
+        """
+
+        # initialize grid and scheduler
         super().__init__(seed)
         self.schedule = RandomActivation(self)
         self.grid = MultiGrid(width, height, torus=True)
@@ -112,7 +39,8 @@ class SchellingModel(Model):
         self.alpha = alpha
         self.happiness_per_type = [0.0, 0.0, 0.0]
         self.num_agents_per_type = [0, 0, 0]
-
+        
+        # set model parameters
         self.pay_c = pay_c
         self.pay_m = pay_m
         self.mu = 0
@@ -123,7 +51,7 @@ class SchellingModel(Model):
         # set districts 
         stripe_width = width // num_districts
         self.districts = [
-            District(i) for i in range(num_districts)
+            District(i, self) for i in range(num_districts)
                 ]
         self.district_of = {
             (x, y): self.districts[min(x // stripe_width, num_districts - 1)]
@@ -136,37 +64,7 @@ class SchellingModel(Model):
         # initialize agents on grid 
         for x in range(width):
             for y in range(height):
-
-                for district_id, boxes in district_areas.items():
-                    if any(self.point_in_box(x, y, box) for box in boxes):
-                        district = self.districts[district_id]
-                        self.district_of[(x, y)] = district
-                        district.empty_places.append((x, y))
-                        district.area +=1
-                        break
-                else:
-                    raise ValueError(f"cell ({x,y}) does not fall in any district ")
-                
-                if self.random.random() < density:
-                    agent_type = np.random.choice([0, 1, 2], p=population_distribution)
-                    if agent_type == 0:
-                        agent = SchellingAgent(uid, self, agent_type)
-                    elif agent_type == 1:
-                        agent = SchellingAgent(uid, self, agent_type)
-                    else:
-                        agent = SchellingAgent(uid, self, agent_type)
-                
-                    self.grid.place_agent(agent, (x, y))
-                    self.schedule.add(agent)
-
-                    # add agent to district 
-                    district.move_in(agent)
-                    uid += 1
-                    self.num_agents_per_type[agent_type] += 1
-        
-        
-        self.calc_mu()
-        self.set_inital_rents(self.mu)
+                uid = self.set_grid(x,y, district_areas, income_dist, population_distribution, density, uid)
 
         #  metrics
         self.metrics = (self.exposure_to_others(self.num_agents_per_type, self.districts), 
@@ -176,8 +74,65 @@ class SchellingModel(Model):
         
         # collect initial data
         # self.datacollector.collect(self)
+    def set_grid(self, x, y, district_areas, income_dist, population_distribution, density, uid):
+        """
+        Assign a cell to its district, initialise rent, and optionally place an agent.
+
+        Params:
+            x (int): X-coordinate of the grid cell.
+            y (int): Y-coordinate of the grid cell.
+            district_areas (dict[int, list[tuple[int,int,int,int]]]): Mapping of district IDs to their rectangle definitions.
+            income_dist (list[float]): Base income for each agent type.
+            population_distribution (list[float]): Probabilities of each agent type.
+            density (float): Probability in [0,1] to place an agent at this cell.
+            uid (int): Current unique ID counter for agents.
+
+        Returns:
+            int: Updated unique ID after possibly creating a new agent.
+
+        Raises:
+            ValueError: If (x,y) does not lie within any district’s defined boxes.
+        """
+        for district_id, boxes in district_areas.items():
+            if any(self.point_in_box(x, y, box) for box in boxes):
+                district = self.districts[district_id]
+                self.district_of[(x, y)] = district
+
+                # set rent to initial income
+                if self.alpha > 0:
+                    district.rent = income_dist[district_id]/3
+                    district.next_rent = income_dist[district_id]/3
+
+                district.empty_places.append((x, y))
+                district.area +=1
+                break
+        else:
+            raise ValueError(f"cell ({x,y}) does not fall in any district ")
+        
+        if self.random.random() < density:
+            agent_type = np.random.choice([0, 1, 2], p=population_distribution)
+            income = income_dist[agent_type] *0.7
+            if agent_type == 0:
+                agent = SchellingAgent(uid, self, agent_type, income)
+            elif agent_type == 1:
+                agent = SchellingAgent(uid, self, agent_type, income)
+            else:
+                agent = SchellingAgent(uid, self, agent_type, income)
+        
+            self.grid.place_agent(agent, (x, y))
+            self.schedule.add(agent)
+
+            # add agent to district 
+            district.move_in(agent)
+            uid += 1
+            self.num_agents_per_type[agent_type] += 1
+        return uid
 
     def calc_mu(self):
+        """
+        Compute the fraction of agents choosing each action in every district and store the result.
+        Used for determining rent and favourite district
+        """
         mu = dict()
         for d in self.districts:
             if d.total_in_dist():
@@ -194,19 +149,35 @@ class SchellingModel(Model):
                 }
         self.mu= mu
 
-    def set_inital_rents(self, mu):
-
-        # get bids on districts 
-        for ag in self.schedule.agents:
-            _ = ag.get_best_district(mu)
-
     def point_in_box(self, x, y, box):
+            """
+            Determine whether a point lies within a given rectangular box.
+
+            Params:
+                x (int or float):  x-coordinate of the point.
+                y (int or float):  y-coordinate of the point.
+                box (tuple[int, int, int, int]):  (x1, y1, x2, y2) defining the rectangle.
+
+            Returns:
+                bool: True if x1 ≤ x < x2 and y1 ≤ y < y2, False otherwise.
+            """
             x1, y1, x2, y2 = box
             return x1 <= x < x2 and y1 <= y < y2
 
     def outline_districts(self, width, height):
+        """
+        Compute the rectangular regions for each district given canvas dimensions.
+
+        Params:
+            width (int):   Total width in pixels.
+            height (int):  Total height in pixels.
+
+        Returns:
+            dict[int, list[tuple[int, int, int, int]]]:
+                Mapping each district ID to a list of (x1, y1, x2, y2) rectangles covering that district.
+        """
         district_areas = {
-            0: [
+            2: [
                 (0, 0, int(width * 0.4), int(height * 0.2)),
                 (0, int(height * 0.2), int(width * 0.5), height),
             ],
@@ -216,7 +187,7 @@ class SchellingModel(Model):
                 (int(width * 0.5), int(height * 0.2), int(width * 0.8), int(height * 0.3)),
                 (int(width * 0.6), int(height * 0.1), int(width * 0.7), int(height * 0.2)),
             ],
-            2: [
+            0: [
                 (int(width * 0.7), 0, width, int(height * 0.2)),
                 (int(width * 0.6), 0, int(width * 0.7), int(height * 0.1)),
                 (int(width * 0.8), int(height * 0.2), width , int(height * 0.3)),
@@ -275,7 +246,7 @@ class SchellingModel(Model):
         """
 
         exposure = 0
-        total_agents = self.schedule.get_agent_count()
+        # total_agents = self.schedule.get_agent_count()
 
         # iterate over all types
         for i in range(len(typetjes)):
@@ -304,32 +275,18 @@ class SchellingModel(Model):
         return exposure
     
     def set_rent_districts(self):
+        """
+        Update rents for all districts based on collected bids and verify population consistency.
+
+        Raises:
+            AssertionError: if the total number of agents across districts does not equal
+                            the total scheduled agents.
+        """
         total_people = 0
         for d in self.districts:
-            d.bids.sort(key=lambda x: x[1], reverse=True)
-            supply = d.area
-            
-            # print(len(d.bids))
-            if len(d.bids) >= supply:
-                rent = d.bids[supply - 1][1]
-            else:
-                rent = d.bids[-1][1] if d.bids else 0
-                if not d.bids:
-                    raise ValueError("there are no biddings on this district, should not happen")
-            d.rent = rent
 
-            # if d.id == 0: 
-            #     d.rent = 2
-            # elif d.id == 1: 
-            #     d.rent = 5
-            # elif d.id == 2: 
-            #     d.rent = 10
-            # else:
-            #     raise ValueError("id's not correctly set")
-
-            # print(f"{d.id}: rent {d.rent}")
-
-            d.bids = []
+            # determine rent for every district 
+            d.my_rent_based_on_bids()
             total_people += d.total_in_dist()
         
          # make sure the dynamical update results in same measures over time 
@@ -339,25 +296,60 @@ class SchellingModel(Model):
 
 
     def step(self):
+        """
+        Advance the model by one tick:
+
+        1. Reset overall happiness and per-type happiness counts.
+        2. Recompute action fractions (mu).
+        3. If alpha > 0:
+            a. Clear previous bids and high_bids.
+            b. Have every agent submit WTP bids for each district.
+            c. Update each district’s rent via set_rent_districts().
+        4. Execute each agent’s step().
+        5. Recalculate exposure and dissimilarity metrics.
+
+        """
 
         # reset happiness
-        
         self.happy = 0
         self.happiness_per_type = [0.0, 0.0, 0.0]
         
+        # Calculate action fractions
+        self.calc_mu()
+
+        # Only Calculate rents if alpha is nonzero
+        if self.alpha > 0:
+            # 1: Remove the bids from the last round
+            for d in self.districts:
+                d.bids.clear()
+                d.high_bids.clear()
+
+            # 2: Every agent submits its WTP for each district
+            for agent in self.schedule.agents:
+                agent.bid_for_districts(self.mu)
+
+            # 3: Set the rent of each district
+            self.set_rent_districts()
+
+        # Agent step
+        self.schedule.step()
+
         self.metrics = (self.exposure_to_others(self.num_agents_per_type, self.districts), 
                         self.dissimilarity(self.num_agents_per_type, self.districts)) 
-
-        self.calc_mu()
-        self.set_rent_districts()
-       
-        #  agent step
-        self.schedule.step()
         
-        # print(self.happiness_per_type)
-        # collect data
-        # self.datacollector.collect(self) 
+        ###########################################################
+        # Als we rents willen gebruiken is de goede volgorde: 
+        # 1) Bereken mu
+        # 2) Verwijder de bids van vorige ronde
+        # 3) Bereken nieuwe bids d.m.v. de willingness-to-pay
+        # 4) Bepaal de nieuwe rents afhankelijk van de WTP en de supply
+        # 5) Daarna maken alle agents een stap en bepalen ze voor zichzelf wat het beste district is
+        ###########################################################
+        # Wat we voorheen fout deden was dat we de WTP en de beste district tegelijk bepaalde,
+        # dus met de volgorde was iets mis.
+        # De functie get_best_district is dus nu opgedeeld in bid_for_district en choose_best_district_given_rents
 
+        
 
 # Set up data collection
         # self.datacollector = DataCollector(
