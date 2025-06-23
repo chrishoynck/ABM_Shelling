@@ -84,7 +84,7 @@ class SchellingAgent(Agent):
 
         return mean_payoff
     
-    def bid_for_districts(self, mu): 
+    def bid_for_districts(self, mu, alpha): 
         """
         Phase 1: Compute and store each agents bid (WTP) for each district. Does not move the agent or choose the best district yet.
         
@@ -104,7 +104,7 @@ class SchellingAgent(Agent):
             rent = district.rent
             consumption = self.income - min(rent, self.income)
 
-            WTP = (consumption**self.model.alpha) * (E_payoff**(1-self.model.alpha))
+            WTP = (consumption**alpha) * (E_payoff**(1-alpha))
             if WTP > highest_bid: 
                 highest_bid = WTP
                 highest_dist = district
@@ -141,8 +141,8 @@ class SchellingAgent(Agent):
                 utility = (consumption**self.model.alpha) * (E_payoff**(1-self.model.alpha))
 
                 # if no money for rent, choose with lowest rent, despite population of district
-                if utility == 0: 
-                    utility = self.income - rent 
+                # if utility == 0: 
+                #     utility = self.income - rent 
                     
             else:
                 utility = E_payoff
@@ -164,12 +164,20 @@ class SchellingAgent(Agent):
         """
 
         # change locations and districts 
-        if not random_move and np.random.random() < 0.3:
-            return
+        # if not random_move and np.random.random() < 0.1:
+        #     return
         
-        if best_district.empty_places:  #and not random_move:
+        if best_district.empty_places: # and not random_move:
             new_x, new_y = self.random.choice(best_district.empty_places)
             current_district = self.model.district_of[self.pos]
+            new_district = self.model.district_of[(new_x, new_y)]
+
+            # won't allow random moves if the rent there is more than its income (restricting poorer agents)
+            # if new_district.rent > self.income:
+            #     assert self.model.alpha != 0, "should not be possible to end up here if alpha is 0"
+            #     if new_district.rent > current_district.rent:
+            #         return 
+                
             current_district.move_out(self)
 
             self.model.grid.move_agent(self, (new_x, new_y))
@@ -185,9 +193,10 @@ class SchellingAgent(Agent):
                 new_pos = self.random.choice(empties)
                 current_district = self.model.district_of[self.pos]
                 new_district = self.model.district_of[new_pos]
-                
-                # won't allow random moves if the rent there is more than its income (restricting poorer agents)
+
+                # # won't allow random moves if the rent there is more than its income (restricting poorer agents)
                 # if new_district.rent > self.income:
+                #     assert self.model.alpha != 0, "should not be possible to end up here if alpha is 0"
                 #     if new_district.rent > current_district.rent:
                 #         return 
                 
@@ -215,7 +224,7 @@ class SchellingAgent(Agent):
         """
         
         # choose action and play coordination game with neighbors
-        self.choose_action()
+        # self.choose_action()
         mean_payoff = self.play_game()
 
         # update properties after collecting expected utilites

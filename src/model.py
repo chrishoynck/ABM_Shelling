@@ -32,7 +32,7 @@ class SchellingModel(Model):
         # initialize grid and scheduler
         super().__init__(seed)
         self.schedule = RandomActivation(self)
-        self.grid = MultiGrid(width, height, torus=True)
+        self.grid = MultiGrid(width, height, torus=False)
 
         # measuring happyness per type 
         self.happy = 0
@@ -51,7 +51,7 @@ class SchellingModel(Model):
         # set districts 
         stripe_width = width // num_districts
         self.districts = [
-            District(i, self) for i in range(num_districts)
+            District(i) for i in range(num_districts)
                 ]
         self.district_of = {
             (x, y): self.districts[min(x // stripe_width, num_districts - 1)]
@@ -147,7 +147,7 @@ class SchellingModel(Model):
                     'b': 0,
                     'c': 0
                 }
-        self.mu= mu
+        return mu
 
     def point_in_box(self, x, y, box):
             """
@@ -177,9 +177,10 @@ class SchellingModel(Model):
                 Mapping each district ID to a list of (x1, y1, x2, y2) rectangles covering that district.
         """
         district_areas = {
-            2: [
-                (0, 0, int(width * 0.4), int(height * 0.2)),
-                (0, int(height * 0.2), int(width * 0.5), height),
+            0: [
+                (int(width * 0.7), 0, width, int(height * 0.2)),
+                (int(width * 0.6), 0, int(width * 0.7), int(height * 0.1)),
+                (int(width * 0.8), int(height * 0.2), width , int(height * 0.3)),
             ],
             1: [
                 (int(width * 0.5), int(height * 0.2), width , height ),
@@ -187,11 +188,12 @@ class SchellingModel(Model):
                 (int(width * 0.5), int(height * 0.2), int(width * 0.8), int(height * 0.3)),
                 (int(width * 0.6), int(height * 0.1), int(width * 0.7), int(height * 0.2)),
             ],
-            0: [
-                (int(width * 0.7), 0, width, int(height * 0.2)),
-                (int(width * 0.6), 0, int(width * 0.7), int(height * 0.1)),
-                (int(width * 0.8), int(height * 0.2), width , int(height * 0.3)),
+
+            2: [
+                (0, 0, int(width * 0.4), int(height * 0.2)),
+                (0, int(height * 0.2), int(width * 0.5), height),
             ],
+            
         }
         return district_areas
 
@@ -315,7 +317,7 @@ class SchellingModel(Model):
         self.happiness_per_type = [0.0, 0.0, 0.0]
         
         # Calculate action fractions
-        self.calc_mu()
+        self.mu = self.calc_mu()
 
         # Only Calculate rents if alpha is nonzero
         if self.alpha > 0:
@@ -326,11 +328,14 @@ class SchellingModel(Model):
 
             # 2: Every agent submits its WTP for each district
             for agent in self.schedule.agents:
-                agent.bid_for_districts(self.mu)
+                agent.bid_for_districts(self.mu, self.alpha)
+                agent.choose_action()
 
             # 3: Set the rent of each district
             self.set_rent_districts()
-
+        else: 
+            for agent in self.schedule.agents:
+                agent.choose_action()
         # Agent step
         self.schedule.step()
 

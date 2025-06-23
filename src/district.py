@@ -1,7 +1,7 @@
 import numpy as np
 
 class District:
-    def __init__(self, id_, model, rent=0):
+    def __init__(self, id_):
         """
         Initialize a District.
 
@@ -17,8 +17,8 @@ class District:
         self.bids = []
         self.area = 0
         self.high_bids = []
-        self.next_rent = rent
-        self.rent = rent
+        self.next_rent = 0
+        self.rent = 0
 
     def count_of(self, group):
         """
@@ -91,25 +91,6 @@ class District:
 
     def my_rent_based_on_bids(self):
 
-        # self.bids.sort(key=lambda x: x[1], reverse=True)
-        # supply = self.area
-        # total_area = 20*20
-        # area_frac  = self.area / total_area
-        # α = 0.1
-
-        # factor = 1
-        # if len(self.high_bids) > supply: 
-        #     factor = 1 + area_frac/10
-        # elif len(self.high_bids) < supply: 
-        #     factor = 1 - area_frac/10
-
-        # self.next_rent = factor*self.rent
-
-        # # advance to next period
-        # self.rent = self.next_rent
-        # self.bids = []
-        # self.high_bids = []
-
         # sort high_bids by WTP descending
         self.high_bids.sort(key=lambda x: x[1], reverse=True)
         self.bids.sort(key=lambda x: x[1], reverse=True)
@@ -129,16 +110,17 @@ class District:
             self.next_rent = (np.average([rent, self.rent], weights=[0.1/(1+0.1), 1/(1/(1+0.1)) ]))  
     
     # def my_rent_based_on_bids(self):
+
     #     self.bids.sort(key=lambda x: x[1], reverse=True)
     #     supply = self.area
         
     #     # print(len(d.bids))
-    #     if len(self.bids) >= supply:
+    #     if len(self.high_bids) >= (len(self.empty_places)/supply) *(20*20):
     #         rent = self.bids[supply][1]
     #     else:
     #         rent = self.bids[-1][1] if self.bids else 0
     #         if not self.bids:
-    #             raise ValueError("there are no biddings on this district, should not happen")
+    #             raise ValueError("There are no biddings on this district, should not happen")
     #     self.rent = self.next_rent
 
     #     # if less highest bids have come in then open places (nobody's first choice)
@@ -153,3 +135,30 @@ class District:
     #     # empty the bids 
     #     self.bids = []
     #     self.high_bids = []
+
+
+#   def my_rent_based_on_bids(self):
+
+#         self.bids.sort(key=lambda x: x[1], reverse=True)
+#         supply = self.area
+#         total_area = 20*20
+#         area_frac  = self.area / total_area
+#         # if self.area> 0:
+#         #     empty_frac = len(self.empty_places)/ self.area
+#         #     index = int(empty_frac*total_area)
+#         #     rent = self.bids[len(self.empty_places)][1]
+#         #     self.rent = self.next_rent
+#         #     self.next_rent = (np.average([rent, self.rent], weights=[0.1, 0.9]))
+
+#         factor = 1
+#         if len(self.high_bids) > supply: 
+#             factor = 1 + area_frac/10
+#         elif len(self.high_bids) < supply:
+#             factor = 1 - area_frac/10
+#         # self.rent = self.next_rent
+#         self.next_rent = factor*self.rent
+
+#         # # advance to next period
+#         self.rent = self.next_rent
+#         self.bids = []
+#         self.high_bids = []

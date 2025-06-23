@@ -24,16 +24,17 @@ def run_model(which_run, steps, seedje, params):
     run_metrics = []
     district_rents = []
     for s in range(steps):
-        # Capture grid state: -1 empty, 0, 1 or 2 agent types
-        grid_state = np.full((width, height), -1)
-        for cell in model.grid.coord_iter():
-            content, x, y = cell
-            if content:
 
-                # capacity 1 grid, so take first agent
-                grid_state[x, y] = content[0].type
-        if s%10 == 0:
-            snapshots.append(grid_state)
+        # Capture grid state: -1 empty, 0, 1 or 2 agent types
+        # grid_state = np.full((width, height), -1)
+        # for cell in model.grid.coord_iter():
+        #     content, x, y = cell
+        #     if content:
+
+        #         # capacity 1 grid, so take first agent
+        #         grid_state[x, y] = content[0].type
+        # if s%10 == 0:
+        #     snapshots.append(grid_state)
         district_rents.append((model.districts[0].rent,model.districts[1].rent, model.districts[2].rent ))
         happyness.append(model.happiness_per_type)
         run_metrics.append(model.metrics)
@@ -127,22 +128,26 @@ def unpack_and_parse_results(resultaatjes):
 
 def main():
 
+
     # set parameters 
     width = 20
     height = 20
-    density = 0.85
+    density = 0.9
 
     # based on real data
     population_distribution = [0.1752,0.524,0.3008]
+    # population_distribution = [0.09, 0.48, 0.43]
     income_dist =  [15.6, 41.2, 94.0]
+    vis.plot_income_distributions(income_dist, sigma=0.25, n_samples=1000)
+    # income_dist = [5, 10, 20]
     
     p_random = 0.1
     pay_c = 10
-    pay_m = 5
-    max_tenure = 4
+    pay_m = 6
+    max_tenure = 5
     u_threshold = 8
 
-    alpha = 0
+    alpha = 0.1
 
     steps = 2000
     seedje = 43
@@ -175,8 +180,8 @@ def main():
 
     vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
     vis.district_prices_plot(district_rents)
-    vis.metrics_plot(run_metrics)
-    vis.create_animation(snapshots_runs[0])
+    vis.metrics_plot(run_metrics, alpha)
+    # vis.create_animation(snapshots_runs[0])
 
 if __name__ == '__main__':
     main()

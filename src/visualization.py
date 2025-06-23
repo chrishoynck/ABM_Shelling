@@ -143,7 +143,7 @@ def district_prices_plot(district_rents):
     fig.savefig(output_path)
     plt.close(fig)
 
-def metrics_plot(metrics_diss_exp):
+def metrics_plot(metrics_diss_exp, alpha):
     """
     Create and save a plot showing the evolution of the proportion of happy agents.
 
@@ -154,7 +154,7 @@ def metrics_plot(metrics_diss_exp):
     Returns: (None): The plot is saved to 'plots/happyness_evolution.png'.
     """
 
-    output_path = "plots/metrics_evolution.png"
+    output_path = f"plots/evolution_metrics/{alpha}.png"
     metrics_arr = np.array(metrics_diss_exp)
     
     # Compute mean and variance across runs (axis=0) → shape (steps, 2)
@@ -190,3 +190,29 @@ def metrics_plot(metrics_diss_exp):
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
+
+
+def plot_income_distributions(base_incomes, sigma=0.25, n_samples=100):
+    """
+    Plot income distributions for given base incomes using a log-normal multiplier.
+
+    Params:
+        base_incomes (list of float): Base income values for each agent type.
+        sigma (float): Standard deviation of the log-normal multiplier.
+        n_samples (int): Number of samples to draw per base income.
+    """
+    plt.figure(figsize=(5,3))
+    for base in base_incomes:
+        samples = base * np.random.lognormal(mean=0, sigma=sigma, size=n_samples)
+        plt.hist(samples,
+                 bins=30,
+                 density=True,
+                 alpha=0.5,
+                 label=f'Base {base}')
+    plt.xlabel('Income')
+    plt.ylabel('Density')
+    plt.title('Income Distributions by Base Income')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("plots/population_distribution.png")
+    # plt.show()
