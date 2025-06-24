@@ -1,6 +1,7 @@
 from mesa import Agent
 import numpy as np
 
+
 class SchellingAgent(Agent):
     """Simple Schelling segregation agent."""
     def __init__(self, unique_id, model, agent_type, income):
@@ -13,11 +14,10 @@ class SchellingAgent(Agent):
 
         # initial number of having an action played 
         self.N_A = self.N_B = self.N_C = 10
-
         base_income = income
-        self.income = base_income * np.random.lognormal(0, 0.25)
+        self.income = base_income * self.model.np_random.lognormal(0, 0.25)
 
-        self.current_action = np.random.choice(['a', 'b', 'c'])
+        self.current_action = self.model.np_random.choice(['a','b','c'])
         self.tenure = 0
         self.utility_sum = 0
         self.happy = False
@@ -34,7 +34,7 @@ class SchellingAgent(Agent):
         # dynamically update the actions taken within district 
         my_district = self.model.district_of[self.pos]
         old_action = self.current_action
-        self.current_action = np.random.choice(['a','b','c'], p=probs)
+        self.current_action = self.current_action = self.model.np_random.choice(['a','b','c'], p=probs)
         my_district.change_actions(old_action, self.current_action)
 
     def update_utility_after_games(self, new_payoff):
@@ -168,9 +168,12 @@ class SchellingAgent(Agent):
         #     return
         
         if best_district.empty_places: # and not random_move:
-            new_x, new_y = self.random.choice(best_district.empty_places)
+            # new_x, new_y = self.random.choice(best_district.empty_places)
+            idx           = self.model.np_random.integers(len(best_district.empty_places))
+            new_x, new_y  = best_district.empty_places[idx]
+
             current_district = self.model.district_of[self.pos]
-            new_district = self.model.district_of[(new_x, new_y)]
+            new_district = self.model.district_of[(new_x,new_y)]
 
             # won't allow random moves if the rent there is more than its income (restricting poorer agents)
             # if new_district.rent > self.income:
@@ -190,9 +193,12 @@ class SchellingAgent(Agent):
         else:
             empties = list(self.model.grid.empties)
             if empties:
-                new_pos = self.random.choice(empties)
+                # new_x, new_y = self.random.choice(empties)
+                idx           = self.model.np_random.integers(len(empties))
+                new_x, new_y  = empties[idx]
+
                 current_district = self.model.district_of[self.pos]
-                new_district = self.model.district_of[new_pos]
+                new_district = self.model.district_of[(new_x,new_y)]
 
                 # # won't allow random moves if the rent there is more than its income (restricting poorer agents)
                 # if new_district.rent > self.income:
@@ -201,7 +207,7 @@ class SchellingAgent(Agent):
                 #         return 
                 
                 current_district.move_out(self)
-                self.model.grid.move_agent(self, new_pos)
+                self.model.grid.move_agent(self, (new_x,new_y))
                 new_district.move_in(self)
                 self.tenure = 0
                 self.utility_sum = 0
@@ -242,7 +248,7 @@ class SchellingAgent(Agent):
         unhappy_move = (mean_utility < self.model.u_threshold and self.tenure >= self.model.max_tenure)
 
         # move if not happy or with random small prob
-        random_move = (self.tenure >= self.model.max_tenure and np.random.random() < self.model.p_random)
+        random_move = (self.tenure >= self.model.max_tenure and self.model.np_random.random() < self.model.p_random)
         
     
         if unhappy_move or random_move:

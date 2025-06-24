@@ -1,6 +1,7 @@
 import numpy as np
 from src.model import SchellingModel
 import src.visualization as vis
+import random
 
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -19,29 +20,35 @@ def run_model(which_run, steps, seedje, params):
     """
     snapshots = []
     happyness = []
+
+    run_seed = int(seedje+which_run)
+    random.seed(run_seed)
+    np.random.seed(run_seed)
+
     (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist) = params
-    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist, seedje+which_run)
+    model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist, seedje = run_seed)
     run_metrics = []
     district_rents = []
+
     for s in range(steps):
 
         # Capture grid state: -1 empty, 0, 1 or 2 agent types
-        # grid_state = np.full((width, height), -1)
-        # for cell in model.grid.coord_iter():
-        #     content, x, y = cell
-        #     if content:
+        grid_state = np.full((width, height), -1)
+        for cell in model.grid.coord_iter():
+            content, x, y = cell
+            if content:
 
-        #         # capacity 1 grid, so take first agent
-        #         grid_state[x, y] = content[0].type
-        # if s%10 == 0:
-        #     snapshots.append(grid_state)
+                # capacity 1 grid, so take first agent
+                grid_state[x, y] = content[0].type
+        if s%10 == 0:
+            snapshots.append(grid_state)
+        
+ 
         district_rents.append((model.districts[0].rent,model.districts[1].rent, model.districts[2].rent ))
         happyness.append(model.happiness_per_type)
         run_metrics.append(model.metrics)
-        # if model.happy < model.schedule.get_agent_count(): 
         model.step()
-        # else: 
-        #     break
+
     print(f"happiness is reached after {s} steps.")
     # print(run_metrics)
     return snapshots, happyness, run_metrics, district_rents, model.num_agents_per_type,  which_run
@@ -66,7 +73,7 @@ def execute_parallel_models(how_many,
 
     print(f"starting parallel generation of Schelling model for {how_many} runs)")
     print("-----------------------------------------")
-    runs = np.arange(how_many)  # Create a range for the runs
+    runs = range(how_many)  # Create a range for the runs
     num_threads = min(how_many, 10)
     # Partially apply parameters for the worker function (currently one parameter setting, could vary with more)
     worker_function = partial(
@@ -138,50 +145,56 @@ def main():
     population_distribution = [0.1752,0.524,0.3008]
     # population_distribution = [0.09, 0.48, 0.43]
     income_dist =  [15.6, 41.2, 94.0]
-    vis.plot_income_distributions(income_dist, sigma=0.25, n_samples=1000)
+    # vis.plot_income_distributions(income_dist, sigma=0.25, n_samples=1000)
     # income_dist = [5, 10, 20]
     
     p_random = 0.1
     pay_c = 10
     pay_m = 6
-    max_tenure = 5
+    max_tenure = 6
     u_threshold = 8
-
-    alpha = 0.1
+    alphas = np.linspace(0, 1, 11)
+    alpha = 0.5
 
     steps = 2000
     seedje = 43
     num_runs = 10
-
-    # pack params
     params = (width, height, density, 
-              p_random, pay_c, pay_m,
-              max_tenure, u_threshold, alpha,
-              population_distribution, income_dist)
+                p_random, pay_c, pay_m,
+                max_tenure, u_threshold, alpha,
+                population_distribution, income_dist)
+    
     
     # run singular model
     # run_model(0, steps, seedje, params)
     
     # parallel
     # collect all results over runs (parallelized implementation)
+    for alpha in alphas:
+        alpha = np.round(alpha,1)
+        # pack params
+        params = (width, height, density, 
+                p_random, pay_c, pay_m,
+                max_tenure, u_threshold, alpha,
+                population_distribution, income_dist)
+        
+        if alpha>0: 
+            print(f"RUNNING WITH DYNAMIC HOUSING PRICE: alpha = {alpha}")
+        resultaatjes = execute_parallel_models(num_runs,
+                                            params,
+                                            seedje,
+                                            steps)
+        
 
-    if alpha>0: 
-        print("RUNNING WITH DYNAMIC HOUSING PRICE")
-    resultaatjes = execute_parallel_models(num_runs,
-                                           params,
-                                           seedje,
-                                           steps)
-    
+        # collect data of run 
+        snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents,  num_agents_grouped = unpack_and_parse_results(resultaatjes)
+        
+        # visualize
 
-    # collect data of run 
-    snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents,  num_agents_grouped = unpack_and_parse_results(resultaatjes)
-    
-    # visualize
-
-    vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
-    vis.district_prices_plot(district_rents)
-    vis.metrics_plot(run_metrics, alpha)
-    # vis.create_animation(snapshots_runs[0])
+        vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
+        vis.district_prices_plot(district_rents)
+        vis.metrics_plot(run_metrics, alpha)
+        vis.create_animation(snapshots_runs[0])
 
 if __name__ == '__main__':
     main()

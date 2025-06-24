@@ -1,15 +1,23 @@
 import numpy as np
 from mesa import Model
 from mesa.space import MultiGrid
-from mesa.time import RandomActivation
+from mesa.time import SimultaneousActivation
 from src.agent import SchellingAgent
 from src.district import District
+import random
 # from mesa.datacollection import DataCollector
 
 
+# class SeededActivation(RandomActivation):
+#     def step(self):
+#         # shuffle with the *model’s* random.Random
+#         self.model.random.shuffle(self.agents)
+#         for a in list(self.agents):
+#             a.step()
+
 class SchellingModel(Model):
     """Model class for the Schelling segregation model."""
-    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, population_distribution, income_dist, seed=None, num_districts = 3):
+    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, population_distribution, income_dist, seedje=None, num_districts = 3):
         """
         Initialise a new Schelling model with spatial districts and bidding.
 
@@ -28,10 +36,21 @@ class SchellingModel(Model):
             seed (int, optional): Random seed for reproducibility. Defaults to None.
             num_districts (int, optional): Number of spatial districts. Defaults to 3.
         """
+        
+        if seedje is None:
+            print("Model not seeded!!")
+        else: 
+            seedje = int(seedje)
 
+        random.seed(seedje)
+        np.random.seed(seedje)
         # initialize grid and scheduler
-        super().__init__(seed)
-        self.schedule = RandomActivation(self)
+        super().__init__(seedje)
+        
+        
+    
+        self.np_random = np.random.default_rng(seedje)
+        self.schedule = SimultaneousActivation(self)
         self.grid = MultiGrid(width, height, torus=False)
 
         # measuring happyness per type 
@@ -48,15 +67,18 @@ class SchellingModel(Model):
         self.u_threshold = u_threshold
         self.p_random = p_random
 
-        # set districts 
-        stripe_width = width // num_districts
+        
         self.districts = [
             District(i) for i in range(num_districts)
                 ]
-        self.district_of = {
-            (x, y): self.districts[min(x // stripe_width, num_districts - 1)]
-            for x in range(width) for y in range(height)
-        }
+        self.district_of = dict()
+        # using evenly distributed districts
+        # set districts 
+        # stripe_width = width // num_districts
+        # self.district_of = {
+        #     (x, y): self.districts[min(x // stripe_width, num_districts - 1)]
+        #     for x in range(width) for y in range(height)
+        # }
         uid = 0
         assert sum(population_distribution) == 1, "Sum of income distribution should be 1"
         
@@ -102,6 +124,8 @@ class SchellingModel(Model):
                 if self.alpha > 0:
                     district.rent = income_dist[district_id]/3
                     district.next_rent = income_dist[district_id]/3
+                    district.min = income_dist[district_id]/6
+                    district.max =  income_dist[district_id]/1
 
                 district.empty_places.append((x, y))
                 district.area +=1
@@ -109,9 +133,10 @@ class SchellingModel(Model):
         else:
             raise ValueError(f"cell ({x,y}) does not fall in any district ")
         
-        if self.random.random() < density:
-            agent_type = np.random.choice([0, 1, 2], p=population_distribution)
-            income = income_dist[agent_type] *0.7
+        # place agent on cell depending on density. pick agent type depending on agent distribution
+        if self.np_random.random() < density:
+            agent_type = self.np_random.choice([0, 1, 2], p=population_distribution)
+            income = income_dist[agent_type] 
             if agent_type == 0:
                 agent = SchellingAgent(uid, self, agent_type, income)
             elif agent_type == 1:
