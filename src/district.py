@@ -91,21 +91,40 @@ class District:
         self.action_counts[agent.current_action] -= 1
         self.counts[agent.type] -= 1
 
+
     def my_rent_based_on_bids(self):
-        self.bids.sort(key=lambda x: x[1], reverse=True)
-        values = [bid for (_, bid) in self.bids]
+        # self.high_bids.sort(key=lambda x: x[1], reverse=True)
+        # values = [bid for (_, bid) in self.bids]
         supply = self.area
         
         # print(len(d.bids))
+        rent = self.rent
         if len(self.high_bids) >= supply:
-            rent = np.mean(values)
-        else:
-            rent = self.bids[-1][1] if self.bids else 0
+            rent =  1.01* self.next_rent #self.high_bids[supply-2][1] #np.mean(values)
+        elif len(self.high_bids) < supply*(1-self.id/5):
+            rent = 0.99*self.next_rent # self.bids[-1][1] if self.high_bids else 0  
             if not self.bids:
                 raise ValueError("there are no biddings on this district, should not happen")
-        self.next_rent = (np.average([rent, self.rent], weights=[0.1, 0.9]))
+        # self.next_rent = (np.average([rent, self.rent], weights=[0.1, 0.9]))
+        self.next_rent = rent
         self.rent = self.next_rent
         self.bids = []
+
+    # def my_rent_based_on_bids(self):
+    #     # self.high_bids.sort(key=lambda x: x[1], reverse=True)
+    #     values = [bid for (_, bid) in self.bids]
+    #     supply = self.area
+        
+    #     # print(len(d.bids))
+    #     if len(self.high_bids) >= supply:
+    #         rent = np.mean(values)
+    #     else:
+    #         rent = 0.9*self.next_rent # self.bids[-1][1] if self.high_bids else 0  
+    #         if not self.bids:
+    #             raise ValueError("there are no biddings on this district, should not happen")
+    #     self.next_rent = (np.average([rent, self.rent], weights=[0.1, 0.9]))
+    #     self.rent = self.next_rent
+    #     self.bids = []
 
     #     # sort high_bids by WTP descending
     #     self.high_bids.sort(key=lambda x: x[1], reverse=True)

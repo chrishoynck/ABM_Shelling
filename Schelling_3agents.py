@@ -24,20 +24,23 @@ def run_model(which_run, steps, seedje, params):
     run_seed = int(seedje+which_run)
     random.seed(run_seed)
     np.random.seed(run_seed)
-
     (width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist) = params
     model = SchellingModel(width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, pop_distribution, income_dist, seedje = run_seed)
     run_metrics = []
     district_rents = []
 
-    for s in range(steps):
+    number_of_places_per_dist = [0,0,0]
+    agent_type_per_district = [[0,0,0],[0,0,0],[0,0,0]]
 
+    for s in range(steps):         
         # Capture grid state: -1 empty, 0, 1 or 2 agent types
         grid_state = np.full((width, height), -1)
         for cell in model.grid.coord_iter():
             content, x, y = cell
             if content:
-
+                if s == steps-1:
+                    number_of_places_per_dist[model.district_of[(x,y)].id] +=1
+                    agent_type_per_district[model.district_of[(x,y)].id][content[0].type] +=1
                 # capacity 1 grid, so take first agent
                 grid_state[x, y] = content[0].type
         if s%10 == 0:
@@ -51,7 +54,7 @@ def run_model(which_run, steps, seedje, params):
 
     print(f"happiness is reached after {s} steps.")
     # print(run_metrics)
-    return snapshots, happyness, run_metrics, district_rents, model.num_agents_per_type,  which_run
+    return snapshots, happyness, run_metrics, district_rents, model.num_agents_per_type, agent_type_per_district, number_of_places_per_dist, which_run
 
 
 def execute_parallel_models(how_many, 
@@ -105,8 +108,9 @@ def unpack_and_parse_results(resultaatjes):
             run_metrics (List): padded metrics lists per run;
             num_agents_grouped (Tuple): agent counts per run.
     """
+
     # unpack results
-    snapshots_runs, happiness_runs, run_metrics, district_rents,  num_agents_grouped, run_ids = zip(*resultaatjes)
+    snapshots_runs, happiness_runs, run_metrics, district_rents, num_agents_grouped, agent_type_per_dist, num_plac_pdist, run_ids = zip(*resultaatjes)
     total_happy = []
     maximal_runs = max([len(x) for x in happiness_runs])
 
@@ -129,7 +133,7 @@ def unpack_and_parse_results(resultaatjes):
         tot_happyness = np.sum(happiness_measures, axis=1)
         total_happy.append(tot_happyness)
     
-    return snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents, num_agents_grouped
+    return snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents, num_agents_grouped, np.array(agent_type_per_dist), num_plac_pdist
         
 
 
@@ -153,18 +157,21 @@ def main():
     pay_m = 6
     max_tenure = 6
     u_threshold = 8
-    alphas = np.linspace(0, 1, 11)
+    # alphas = np.linspace(0, 1, 11)
+    alphas = [0.0, 0.2, 0.5, 0.7]
     alpha = 0.5
 
     steps = 2000
     seedje = 43
-    num_runs = 10
+    num_runs = 50
     params = (width, height, density, 
                 p_random, pay_c, pay_m,
                 max_tenure, u_threshold, alpha,
                 population_distribution, income_dist)
     
-    
+    metrics_per_alpha = dict()
+    rents_per_alpha = dict()
+    stats_per_alpha = dict()
     # run singular model
     # run_model(0, steps, seedje, params)
     
@@ -187,14 +194,23 @@ def main():
         
 
         # collect data of run 
-        snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents,  num_agents_grouped = unpack_and_parse_results(resultaatjes)
-        
+        snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents,  num_agents_grouped, agent_type_per_dist, num_plc_per_dist = unpack_and_parse_results(resultaatjes)
+        metrics_per_alpha[alpha] = [ metrics_list[-1] for metrics_list in run_metrics ]
+        rents_per_alpha[alpha] =  [ rent_list[-1] for rent_list in district_rents ]
         # visualize
 
         vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
         vis.district_prices_plot(district_rents)
-        vis.metrics_plot(run_metrics, alpha)
+        vis.occupants_per_dist(agent_type_per_dist, alpha, num_plc_per_dist)
+        stats_diss, stats_exp = vis.metrics_plot(run_metrics, alpha)
+        stats_per_alpha[alpha] = (stats_diss, stats_exp)
         vis.create_animation(snapshots_runs[0])
+    
+    # print(metrics_per_alpha)
+    vis.multiple_metrics_plot(stats_per_alpha)
+    vis.alpha_metrics(metrics_per_alpha, alphas)
+    vis.alpha_rents(rents_per_alpha, alphas)
+    
 
 if __name__ == '__main__':
     main()

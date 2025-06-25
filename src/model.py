@@ -122,10 +122,15 @@ class SchellingModel(Model):
 
                 # set rent to initial income
                 if self.alpha > 0:
-                    district.rent = income_dist[district_id]/3
-                    district.next_rent = income_dist[district_id]/3
-                    district.min = income_dist[district_id]/6
-                    district.max =  income_dist[district_id]/1
+                    district.rent = (district_id + 1)*5
+                    district.next_rent = district.rent
+                    # district.rent = income_dist[district_id]/5
+                    # district.next_rent = income_dist[district_id]/5
+                    # district.min = income_dist[district_id]/6
+                    # district.max =  income_dist[district_id]/1
+                else:
+                    district.rent = 0
+                    district.next_rent = 0
 
                 district.empty_places.append((x, y))
                 district.area +=1

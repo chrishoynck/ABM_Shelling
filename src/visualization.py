@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation 
 import numpy as np
@@ -29,6 +31,54 @@ def create_animation(snapshots):
     plt.show()
 
 
+def occupants_per_dist(occ, alpha, number_of_places_per_district, output_path="plots/occupants_per_dist.png"):
+    """
+    Plot a grouped bar chart of average agent proportions per district for each agent type.
+
+    Params:
+        occ (np.ndarray): Array of shape (R, D, T) where
+                          R = number of runs,
+                          D = number of districts,
+                          T = number of agent types.
+        alpha (float):    Alpha parameter value (for title/filename).
+        number_of_places_per_district (list or array): length-D list of total places per district.
+        output_path (str): Path to save the figure as PNG.
+    """
+    # Compute mean and standard deviation across runs (axis=0)
+    mean_counts = occ.mean(axis=0)          # shape (D, T)
+    std_counts  = np.sqrt(occ.var(axis=0))  # shape (D, T)
+
+    # Convert counts to proportions by dividing by district capacities
+    capacities = np.array(number_of_places_per_district).mean(axis=0)  # shape (D,)
+
+    # calculate proportions
+    mean_props = mean_counts / capacities[:, None]
+    std_props  = std_counts  / capacities[:, None]
+    D, T = mean_props.shape
+    indices = np.arange(D)
+    width = 0.8 / T
+
+    fig, ax = plt.subplots(figsize=(4, 3))
+
+    for t in range(T):
+        ax.bar(indices + t * width,
+               mean_props[:, t],
+               width=width,
+               yerr=std_props[:, t],
+               capsize=3,
+               label=f"Type {t}")
+
+    ax.set_xticks(indices + width * (T - 1) / 2)
+    ax.set_xticklabels([f"District {d}" for d in range(D)])
+    ax.set_xlabel("District")
+    ax.set_ylabel("Average proportion occupied")
+    ax.set_title(f"Average Occupancy Proportions by District (alpha={alpha})")
+    ax.legend()
+    fig.tight_layout()
+
+    if output_path:
+        fig.savefig(output_path, dpi=300)
+    plt.close(fig)
 
 
 def happyness_plot(happy_data, happiness_grouped, numagents_per_type):
@@ -73,7 +123,7 @@ def happyness_plot(happy_data, happiness_grouped, numagents_per_type):
     
     for i in range(3):
         mu = mean_grp[:, i]
-        sigma = np.sqrt(var_grp[:, i])
+        sigma = (np.sqrt(var_grp[:, i])*1.96)/np.sqrt(len(arr_tot))
         ax.plot(steps, mu, label=f"Type {i}", linewidth=0.3)
         ax.fill_between(steps, mu - sigma, mu + sigma, alpha=0.2)
             
@@ -82,7 +132,7 @@ def happyness_plot(happy_data, happiness_grouped, numagents_per_type):
     ax.set_title("development of happyness")
     fig.tight_layout()
     plt.legend()
-    fig.savefig(output_path)
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
 
 def district_prices_plot(district_rents):
@@ -109,7 +159,7 @@ def district_prices_plot(district_rents):
 
     # Dissimilarity (metric index 0)
     mean_district_0   = mean_vals[:, 0]
-    sigma_district_0  = np.sqrt(var_vals[:, 0])
+    sigma_district_0  = (np.sqrt(var_vals[:, 0])*1.96)/np.sqrt(len(metrics_arr))
     ax.plot(steps, mean_district_0, label="District 0")
     ax.fill_between(steps,
                     mean_district_0 - sigma_district_0,
@@ -118,7 +168,7 @@ def district_prices_plot(district_rents):
     
     # District 1
     mean_district_1    = mean_vals[:, 1]
-    sigma_district_1   = np.sqrt(var_vals[:, 1])
+    sigma_district_1   = (np.sqrt(var_vals[:, 1])*1.96)/np.sqrt(len(metrics_arr))
     ax.plot(steps, mean_district_1, label="District 1")
     ax.fill_between(steps,
                     mean_district_1 - sigma_district_1,
@@ -127,7 +177,7 @@ def district_prices_plot(district_rents):
     
     # District 1
     mean_district_2    = mean_vals[:, 2]
-    sigma_district_2  = np.sqrt(var_vals[:, 2])
+    sigma_district_2  = (np.sqrt(var_vals[:, 2])*1.96)/np.sqrt(len(metrics_arr))
     ax.plot(steps, mean_district_2, label="District 2")
     ax.fill_between(steps,
                     mean_district_2 - sigma_district_2,
@@ -140,8 +190,138 @@ def district_prices_plot(district_rents):
     ax.set_title("Evolution of Rent per district ")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(output_path)
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
+
+def alpha_rents(last_metrics, alphas):
+
+    output_path = "plots/alpha_rents.png"
+    rent0_stats, rent1_stats, rent2_stats =  [], [], []
+    fig, ax =  plt.subplots(figsize=(5, 3))
+    for alpha, alpha_metric in last_metrics.items():
+
+        rent0, rent1, rent2= zip(*alpha_metric)
+        rent0_stats.append([np.mean(rent0), np.var(rent0)])
+        rent1_stats.append([np.mean(rent1), np.var(rent1)])
+        rent2_stats.append([np.mean(rent2), np.var(rent2)])
+    
+    rent0_stats = np.array(rent0_stats)
+    rent1_stats = np.array(rent1_stats)
+    rent2_stats = np.array(rent2_stats)
+
+    for i, rent_stats in enumerate([rent0_stats, rent1_stats, rent2_stats]):
+        ax.plot(alphas, rent_stats[:, 0], label=f"Rent of district {i}")
+        ax.fill_between(alphas,
+                        rent_stats[:, 0] - (np.sqrt(rent_stats[:, 1])*1.96)/np.sqrt(len(alpha_metric)),
+                        rent_stats[:, 0] + (np.sqrt(rent_stats[:, 1])*1.96)/np.sqrt(len(alpha_metric)),
+                        alpha=0.2)
+    
+    ax.set_xlabel("Alpha")
+    ax.set_ylabel("Rent")
+    ax.set_title("Rent after 2000 steps of all ditricts")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300)
+    plt.close(fig)
+
+def alpha_metrics(last_metrics, alphas):
+    output_path = "plots/alpha_evolution.png"
+    exp_stat =  []
+    diss_stat = []
+    fig, ax =  plt.subplots(figsize=(5, 3))
+    for _, alpha_metric in last_metrics.items():
+
+        exposures, dissimilarities = zip(*alpha_metric)
+        mean_exp = np.mean(exposures) 
+        var_exp = np.var(exposures)
+        mean_diss = np.mean(dissimilarities)
+        var_diss = np.var(dissimilarities)
+        exp_stat.append([mean_exp, var_exp])
+        diss_stat.append([mean_diss, var_diss])
+    
+    exp_stat = np.array(exp_stat)
+    diss_stat = np.array(diss_stat)
+     # Exposure
+    ax.plot(
+        alphas,
+        exp_stat[:, 0],
+        label="Exposure",
+        marker='o',       # ← add circles at each point
+        linestyle='-'
+    )
+    ax.fill_between(
+        alphas,
+        exp_stat[:, 0] - np.sqrt(exp_stat[:, 1]),
+        exp_stat[:, 0] + np.sqrt(exp_stat[:, 1]),
+        alpha=0.2
+    )
+
+    # Dissimilarity
+    ax.plot(
+        alphas,
+        diss_stat[:, 0],
+        label="Dissimilarity",
+        marker='o',       # ← add circles here too
+        linestyle='-'
+    )
+    ax.fill_between(
+        alphas,
+        diss_stat[:, 0] - np.sqrt(diss_stat[:, 1]),
+        diss_stat[:, 0] + np.sqrt(diss_stat[:, 1]),
+        alpha=0.2
+    )
+
+    
+    ax.set_xlabel("Alpha")
+    ax.set_ylabel("Metric value")
+    ax.set_title("Dissimilarity and Exposure")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300)
+    plt.close(fig)
+
+def multiple_metrics_plot(stats_dict):
+    
+    fig, axs = plt.subplots(2, 2, figsize=(5.3,4), sharex=True, sharey=True)
+    counter = 0
+    axs = axs.flatten()
+    for alpha, (stats_diss, stats_exp) in stats_dict.items():
+        # if alpha%0.2 == 0 and alpha < 1: 
+        mean_diss, sigma_diss = stats_diss
+        steps = np.arange(len(mean_diss))
+        axs[counter].plot(steps, mean_diss, label="Dissimilarity")
+        axs[counter].fill_between(steps,
+                    mean_diss - sigma_diss,
+                    mean_diss + sigma_diss,
+                    alpha=0.2)
+        mean_exp, sigma_exp = stats_exp
+        axs[counter].plot(steps, mean_exp, label="Exposure")
+        axs[counter].fill_between(steps,
+                    mean_exp - sigma_exp,
+                    mean_exp + sigma_exp,
+                    alpha=0.2)
+        axs[counter].set_title(r"$\alpha: $" + f"{alpha}")
+
+        if counter > 1:
+            axs[counter].set_xlabel("Step")
+
+        if counter%2 == 0:
+            axs[counter].set_ylabel("Metric value")
+        
+        if counter == 0:
+            axs[counter].legend()
+        counter +=1
+
+        fig.suptitle("Evolution of Metrics")
+        fig.tight_layout()
+        fig.savefig("plots/metrics_suplots.png", dpi=300)
+        plt.close(fig)
+        
+            
+        
+
+
+
 
 def metrics_plot(metrics_diss_exp, alpha):
     """
@@ -162,12 +342,11 @@ def metrics_plot(metrics_diss_exp, alpha):
     var_vals  = metrics_arr.var(axis=0)
     
     steps = np.arange(mean_vals.shape[0])
-
     fig, ax = plt.subplots(figsize=(5, 3))
 
     # Dissimilarity (metric index 0)
     mean_diss   = mean_vals[:, 1]
-    sigma_diss  = np.sqrt(var_vals[:, 1])
+    sigma_diss  = (np.sqrt(var_vals[:, 1])*1.96)/np.sqrt(len(metrics_arr))
     ax.plot(steps, mean_diss, label="Dissimilarity")
     ax.fill_between(steps,
                     mean_diss - sigma_diss,
@@ -176,7 +355,7 @@ def metrics_plot(metrics_diss_exp, alpha):
     
     # Exposure (metric index 1)
     mean_exp    = mean_vals[:, 0]
-    sigma_exp   = np.sqrt(var_vals[:, 0])
+    sigma_exp   = (np.sqrt(var_vals[:, 0])*1.96)/np.sqrt(len(metrics_arr))
     ax.plot(steps, mean_exp, label="Exposure")
     ax.fill_between(steps,
                     mean_exp - sigma_exp,
@@ -185,11 +364,12 @@ def metrics_plot(metrics_diss_exp, alpha):
     
     ax.set_xlabel("Steps")
     ax.set_ylabel("Metric value")
-    ax.set_title("Evolution of Dissimilarity and Exposure")
+    ax.set_title(f"Dissimilarity and Exposure, alpha: {alpha} ")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(output_path)
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
+    return (mean_diss, sigma_diss), (mean_exp, sigma_exp)
 
 
 def plot_income_distributions(base_incomes, sigma=0.25, n_samples=100):
@@ -214,5 +394,5 @@ def plot_income_distributions(base_incomes, sigma=0.25, n_samples=100):
     plt.title('Income Distributions by Base Income')
     plt.legend()
     plt.tight_layout()
-    plt.savefig("plots/population_distribution.png")
+    plt.savefig("plots/population_distribution.png", dpi=300)
     # plt.show()
