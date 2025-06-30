@@ -17,7 +17,7 @@ import random
 
 class SchellingModel(Model):
     """Model class for the Schelling segregation model."""
-    def __init__(self, width, height, density, p_random, pay_c, pay_m, max_tenure, u_threshold, alpha, population_distribution, income_dist, seedje=None, num_districts = 3):
+    def __init__(self, width=15, height=15, density=0.9, p_random=0.1, pay_c=10, pay_m=6, min_tenure=5, u_threshold=8, alpha=0.5, population_distribution=[0.1752,0.524,0.3008], income_dist=[15.6, 41.2, 94.0], seedje=None, num_districts = 3):
         """
         Initialise a new Schelling model with spatial districts and bidding.
 
@@ -63,9 +63,12 @@ class SchellingModel(Model):
         self.pay_c = pay_c
         self.pay_m = pay_m
         self.mu = 0
-        self.max_tenure = max_tenure
+        self.max_tenure = min_tenure
         self.u_threshold = u_threshold
         self.p_random = p_random
+
+        self.dissimilarity_list = []
+        self.exposure_list = []
 
         
         self.districts = [
@@ -372,6 +375,9 @@ class SchellingModel(Model):
         self.metrics = (self.exposure_to_others(self.num_agents_per_type, self.districts), 
                         self.dissimilarity(self.num_agents_per_type, self.districts)) 
         
+        self.dissimilarity_list.append(self.dissimilarity(self.num_agents_per_type, self.districts))
+        self.exposure_list.append(self.exposure_to_others(self.num_agents_per_type, self.districts))
+
         ###########################################################
         # Als we rents willen gebruiken is de goede volgorde: 
         # 1) Bereken mu
