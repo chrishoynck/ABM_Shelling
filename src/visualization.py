@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation 
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import numpy as np
-from scipy.ndimage import rotate
 
 
 COLOURS = ["#dfa83b", "#a26da4", "#496636"]
@@ -43,8 +42,6 @@ def create_animation(snapshots, alpha, save):
             spine.set_linewidth(20)
             spine.set_position(('outward', 20)) 
 
-        # ax2.set_xlim(-0.5, w-0.5)
-        # ax2.set_ylim(-0.5, h-0.5)
         ax2.set_title(f"Step {step*10}", fontsize=35)
         fig2.tight_layout(pad=0)
         fig2.savefig(f"plots/animations/snapshots/{alpha}/step_{step}.png", dpi=300,
