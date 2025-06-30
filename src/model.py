@@ -7,14 +7,6 @@ from src.district import District
 import random
 # from mesa.datacollection import DataCollector
 
-
-# class SeededActivation(RandomActivation):
-#     def step(self):
-#         # shuffle with the *model’s* random.Random
-#         self.model.random.shuffle(self.agents)
-#         for a in list(self.agents):
-#             a.step()
-
 class SchellingModel(Model):
     """Model class for the Schelling segregation model."""
     def __init__(self, width=15, height=15, density=0.9, p_random=0.1, pay_c=10, pay_m=6, min_tenure=5, u_threshold=8, alpha=0.5, population_distribution=[0.1752,0.524,0.3008], income_dist=[15.6, 41.2, 94.0], seedje=None, num_districts = 3):
@@ -75,13 +67,6 @@ class SchellingModel(Model):
             District(i) for i in range(num_districts)
                 ]
         self.district_of = dict()
-        # using evenly distributed districts
-        # set districts 
-        # stripe_width = width // num_districts
-        # self.district_of = {
-        #     (x, y): self.districts[min(x // stripe_width, num_districts - 1)]
-        #     for x in range(width) for y in range(height)
-        # }
         uid = 0
         assert sum(population_distribution) == 1, "Sum of income distribution should be 1"
         
@@ -127,10 +112,6 @@ class SchellingModel(Model):
                 if self.alpha > 0:
                     district.rent = (district_id + 1)*5
                     district.next_rent = district.rent
-                    # district.rent = income_dist[district_id]/5
-                    # district.next_rent = income_dist[district_id]/5
-                    # district.min = income_dist[district_id]/6
-                    # district.max =  income_dist[district_id]/1
                 else:
                     district.rent = 0
                     district.next_rent = 0
@@ -366,54 +347,17 @@ class SchellingModel(Model):
 
             # 3: Set the rent of each district
             self.set_rent_districts()
+
+        # if alpha is 0, don't consider rent
         else: 
             for agent in self.schedule.agents:
                 agent.choose_action()
         # Agent step
         self.schedule.step()
 
+        # save metrics 
         self.metrics = (self.exposure_to_others(self.num_agents_per_type, self.districts), 
                         self.dissimilarity(self.num_agents_per_type, self.districts)) 
         
         self.dissimilarity_list.append(self.dissimilarity(self.num_agents_per_type, self.districts))
         self.exposure_list.append(self.exposure_to_others(self.num_agents_per_type, self.districts))
-
-        ###########################################################
-        # Als we rents willen gebruiken is de goede volgorde: 
-        # 1) Bereken mu
-        # 2) Verwijder de bids van vorige ronde
-        # 3) Bereken nieuwe bids d.m.v. de willingness-to-pay
-        # 4) Bepaal de nieuwe rents afhankelijk van de WTP en de supply
-        # 5) Daarna maken alle agents een stap en bepalen ze voor zichzelf wat het beste district is
-        ###########################################################
-        # Wat we voorheen fout deden was dat we de WTP en de beste district tegelijk bepaalde,
-        # dus met de volgorde was iets mis.
-        # De functie get_best_district is dus nu opgedeeld in bid_for_district en choose_best_district_given_rents
-
-        
-
-# Set up data collection
-        # self.datacollector = DataCollector(
-        #     model_reporters={
-        #         "happy": "happy",
-        #         "pct_happy": lambda m: (m.happy / m.schedule.get_agent_count()) * 100
-        #         if m.schedule.get_agent_count() > 0
-        #         else 0,
-        #         "population": lambda m: m.schedule.get_agent_count(),
-        #         "minority_pct_1": lambda m: (
-        #             sum(1 for a in m.schedule.agents if a.type == 1)
-        #             / m.schedule.get_agent_count()
-        #             * 100
-        #             if m.schedule.get_agent_count()> 0
-        #             else 0
-        #         ),
-        #         "minority_pct_2": lambda m: (
-        #             sum(1 for a in m.schedule.agents if a.type == 2)
-        #             / m.schedule.get_agent_count()
-        #             * 100
-        #             if m.schedule.get_agent_count()> 0
-        #             else 0
-        #         ),
-        #     },
-        #     agent_reporters={"agent_type": "type"},
-        # )

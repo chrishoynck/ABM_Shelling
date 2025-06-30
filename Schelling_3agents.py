@@ -138,7 +138,20 @@ def unpack_and_parse_results(resultaatjes):
 
 
 def main():
+    """
+    Run the housing‐price simulation and create plots.
 
+    This function:
+      1. Sets up all model parameters (grid size, density, incomes, payoffs, etc.).
+      2. Runs the simulation in parallel for each price‐change rate (alpha).
+      3. Gathers results and plots:
+         - Overall happiness over time
+         - District price changes
+         - Occupant distributions
+         - Other key metrics
+      4. Optionally saves plots and runs extra-long simulations when `save` is True.
+
+    """
 
     # set parameters 
     width = 20
@@ -147,33 +160,44 @@ def main():
 
     # based on real data
     population_distribution = [0.1752,0.524,0.3008]
-    # population_distribution = [0.09, 0.48, 0.43]
     income_dist =  [15.6, 41.2, 94.0]
-    # vis.plot_income_distributions(income_dist, sigma=0.25, n_samples=1000)
-    # income_dist = [5, 10, 20]
-    
+    vis.plot_income_distributions(income_dist, sigma=0.25, n_samples=1000)
+
     p_random = 0.1
     pay_c = 10
     pay_m = 6
     max_tenure = 6
     u_threshold = 8
-    # alphas = np.linspace(0, 1, 11)
+    seedje = 43
+
+    # save plots? set True for also long runs 
+    save = False
+    
+    # alphas = np.linspace(0, 0.9, 10)
     alphas = [0.0, 0.2, 0.5, 0.7]
     alpha = 0.5
 
-    steps = 2000
-    seedje = 43
-    num_runs = 50
+    # real vals
+    if save: 
+        steps = 2000
+        num_runs = 50
+    else: 
+        # dummy vals
+        steps = 200
+        num_runs = 10
+   
+
+    # set parameters (easy transfer)
     params = (width, height, density, 
                 p_random, pay_c, pay_m,
                 max_tenure, u_threshold, alpha,
                 population_distribution, income_dist)
     
+    # save all data in dictionaries (for visualization)
     metrics_per_alpha = dict()
     rents_per_alpha = dict()
     stats_per_alpha = dict()
-    # run singular model
-    # run_model(0, steps, seedje, params)
+    stats_habits_per_dist = dict()
     
     # parallel
     # collect all results over runs (parallelized implementation)
@@ -195,22 +219,37 @@ def main():
 
         # collect data of run 
         snapshots_runs, happiness_runs, total_happy, run_metrics, district_rents,  num_agents_grouped, agent_type_per_dist, num_plc_per_dist = unpack_and_parse_results(resultaatjes)
-        metrics_per_alpha[alpha] = [ metrics_list[-1] for metrics_list in run_metrics ]
-        rents_per_alpha[alpha] =  [ rent_list[-1] for rent_list in district_rents ]
-        # visualize
+        metrics_per_alpha[alpha] = [metrics_list[-1] for metrics_list in run_metrics ]
+        rents_per_alpha[alpha] =  [rent_list[-1] for rent_list in district_rents ]
 
-        vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped)
-        vis.district_prices_plot(district_rents)
-        vis.occupants_per_dist(agent_type_per_dist, alpha, num_plc_per_dist)
-        stats_diss, stats_exp = vis.metrics_plot(run_metrics, alpha)
+        # visualize
+        vis.happyness_plot(total_happy, happiness_runs, num_agents_grouped, save)
+        vis.district_prices_plot(district_rents, save)
+        mean_prop, std_prop = vis.occupants_per_dist(agent_type_per_dist, alpha, num_plc_per_dist, save)
+
+        stats_habits_per_dist[alpha] =(mean_prop, std_prop)
+        stats_diss, stats_exp = vis.metrics_plot(run_metrics, alpha, save)
         stats_per_alpha[alpha] = (stats_diss, stats_exp)
-        vis.create_animation(snapshots_runs[0])
+        
+        if num_runs > 2: 
+            whichrun = int(num_runs/2)+1
+        else:
+            whichrun = 0
+
+        # create animation (only saved if save is true)
+        if num_runs >= 2000:
+            vis.create_animation(snapshots_runs[whichrun], alpha, save)
     
     # print(metrics_per_alpha)
-    vis.multiple_metrics_plot(stats_per_alpha)
-    vis.alpha_metrics(metrics_per_alpha, alphas)
-    vis.alpha_rents(rents_per_alpha, alphas)
-    
+
+    if len(alphas) == 4:
+        vis.multiple_occ_per_dist(stats_habits_per_dist, num_runs, save)
+        vis.multiple_metrics_plot(stats_per_alpha, save)
+
+    if len(alphas) > 8: 
+        vis.alpha_metrics(metrics_per_alpha, alphas, save)
+        vis.alpha_rents(rents_per_alpha, alphas, save)
+        
 
 if __name__ == '__main__':
     main()

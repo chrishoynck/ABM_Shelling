@@ -244,7 +244,6 @@ class SchellingAgent(Agent):
         self.happy = (mean_utility >= self.model.u_threshold)
         if self.happy:
             self.model.happiness_per_type[self.type] += 1
-
         unhappy_move = (mean_utility < self.model.u_threshold and self.tenure >= self.model.max_tenure)
 
         # move if not happy or with random small prob
